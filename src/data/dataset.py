@@ -95,12 +95,24 @@ class BraTSDataset(Dataset):
     # ── Private helpers ───────────────────────────────────────────────────────
 
     def _find_file(self, sid, suffix):
-        """Locate a modality file by suffix inside subject directory."""
+        """Locate a modality file by suffix inside subject directory.
+        Handles bizarre Kaggle dataset bugs where .nii files are extracted as folders."""
         subdir = os.path.join(self.root_dir, sid)
         clean_suffix = suffix.replace('.nii.gz', '').replace('.nii', '')
+        
+        # 1. Direct match
         for f in os.listdir(subdir):
-            if f.startswith(sid + clean_suffix) and (f.endswith('.nii.gz') or f.endswith('.nii')):
-                return os.path.join(subdir, f)
+            if f.startswith(sid + clean_suffix):
+                full_path = os.path.join(subdir, f)
+                # If Kaggle incorrectly made it a folder, look inside
+                if os.path.isdir(full_path):
+                    inside_files = [f for f in os.listdir(full_path) if f.endswith('.nii') or f.endswith('.nii.gz')]
+                    if inside_files:
+                        return os.path.join(full_path, inside_files[0])
+                # If it's a normal file
+                elif f.endswith('.nii.gz') or f.endswith('.nii'):
+                    return full_path
+                    
         raise FileNotFoundError(
             f'File with suffix "{clean_suffix}" not found for subject {sid} under {subdir}'
         )
@@ -216,9 +228,18 @@ def get_subject_splits(config):
             # files can end with .nii.gz or .nii
             path_gz = os.path.join(subdir, f"{sid}{suffix}.nii.gz")
             path_nii = os.path.join(subdir, f"{sid}{suffix}.nii")
-            if os.path.exists(path_gz) and os.path.getsize(path_gz) > 0:
-                continue
-            if os.path.exists(path_nii) and os.path.getsize(path_nii) > 0:
+            
+            # Helper to check if file exists and > 0 bytes (handles Kaggle nested folder bug)
+            def check_valid(p):
+                if os.path.isdir(p):
+                    # It's a folder, look inside
+                    for f in os.listdir(p):
+                        if (f.endswith('.nii') or f.endswith('.nii.gz')) and os.path.getsize(os.path.join(p, f)) > 0:
+                            return True
+                    return False
+                return os.path.exists(p) and os.path.getsize(p) > 0
+                
+            if check_valid(path_gz) or check_valid(path_nii):
                 continue
             
             is_valid = False
