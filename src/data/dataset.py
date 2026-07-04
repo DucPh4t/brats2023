@@ -52,6 +52,8 @@ class BraTSDataset(Dataset):
         self.cache_volumes = cache_volumes
 
         self.preprocessor = get_preprocessor(self.normalization, preprocess_config or {})
+        self._last_sid = None
+        self._last_subject = None
 
         # ── Pre-load all volumes into RAM (float16 to save memory) ───────────
         self._cache = {}
@@ -136,6 +138,15 @@ class BraTSDataset(Dataset):
         seg_path = self._find_file(sid, '-seg.nii.gz')
         return nib.load(seg_path).get_fdata().astype(np.uint8)
 
+    def _get_subject_for_slice(self, sid):
+        """Cache the most recent subject per worker to avoid reloading per slice."""
+        if self.cache_volumes:
+            return self._cache[sid]
+        if self._last_sid != sid or self._last_subject is None:
+            self._last_subject = self._load_subject(sid)
+            self._last_sid = sid
+        return self._last_subject
+
     def _context_indices(self, slice_idx):
         if self.context_radius == 0:
             return [slice_idx]
@@ -152,23 +163,12 @@ class BraTSDataset(Dataset):
     def __getitem__(self, idx):
         sid, slice_idx = self.samples[idx]
 
-        if self.cache_volumes:
-            cached = self._cache[sid]
-            imgs = []
-            for mod in ['flair', 't1', 't1ce', 't2']:
-                for ctx_idx in self._context_indices(slice_idx):
-                    imgs.append(cached[mod][:, :, ctx_idx])
-            mask = cached['seg'][:, :, slice_idx]
-        else:
-            imgs = []
-            for mod, suffix in self._MOD_SUFFIXES.items():
-                path = self._find_file(sid, suffix)
-                vol_3d = nib.load(path).get_fdata()
-                vol_norm = self.preprocessor(vol_3d, modality=mod)
-                for ctx_idx in self._context_indices(slice_idx):
-                    imgs.append(vol_norm[:, :, ctx_idx])
-            seg_path = self._find_file(sid, '-seg.nii.gz')
-            mask = nib.load(seg_path).get_fdata()[:, :, slice_idx]
+        subject = self._get_subject_for_slice(sid)
+        imgs = []
+        for mod in ['flair', 't1', 't1ce', 't2']:
+            for ctx_idx in self._context_indices(slice_idx):
+                imgs.append(subject[mod][:, :, ctx_idx])
+        mask = subject['seg'][:, :, slice_idx]
 
         stack = np.stack(imgs, axis=0).astype(np.float32)
 
@@ -330,7 +330,7 @@ def get_dataloaders(config):
     batch_size   = train_cfg['batch_size']
 
     train_sampler  = None
-    shuffle_train  = True
+    shuffle_train  = bool(data_cfg.get('shuffle_train', sampling != 'fixed'))
 
     if (sampling == 'weighted'
             and hasattr(train_ds, 'sample_weights')
