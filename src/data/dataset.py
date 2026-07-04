@@ -201,10 +201,33 @@ def get_subject_splits(config):
     root_dir = data_cfg['root_dir']
 
     # Discover all valid subject directories
-    subjects = sorted([
+    raw_subjects = sorted([
         d for d in os.listdir(root_dir)
         if os.path.isdir(os.path.join(root_dir, d)) and d.startswith('BraTS-GLI-')
     ])
+    
+    # Filter out corrupted subjects (missing files or 0-byte empty files)
+    subjects = []
+    for sid in raw_subjects:
+        subdir = os.path.join(root_dir, sid)
+        is_valid = True
+        # Check all 5 required modalities/masks
+        for suffix in ['-t2f', '-t1n', '-t1c', '-t2w', '-seg']:
+            # files can end with .nii.gz or .nii
+            path_gz = os.path.join(subdir, f"{sid}{suffix}.nii.gz")
+            path_nii = os.path.join(subdir, f"{sid}{suffix}.nii")
+            if os.path.exists(path_gz) and os.path.getsize(path_gz) > 0:
+                continue
+            if os.path.exists(path_nii) and os.path.getsize(path_nii) > 0:
+                continue
+            
+            is_valid = False
+            break
+            
+        if is_valid:
+            subjects.append(sid)
+        else:
+            print(f"[WARNING] Skipping corrupted subject: {sid}")
 
     if len(subjects) == 0:
         raise RuntimeError(
