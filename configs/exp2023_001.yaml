@@ -12,7 +12,7 @@ exp_name: "exp2023_001"
 description: "Baseline Group A — UNet32 minmax sequential Dice Adam no aug"
 
 data:
-  root_dir: "/kaggle/input/brats-2023-adult-glioma/ASNR-MICCAI-BraTS2023-GLI-Challenge-TrainingData"
+  root_dir: "/kaggle/input/datasets/luumsk/asnr-miccai-brats-2023-gli-challenge-training-data/ASNR-MICCAI-BraTS2023-GLI-Challenge-TrainingData"
   split_type: "sequential"
   slice_range: [0, 155]
   normalization: "minmax"
