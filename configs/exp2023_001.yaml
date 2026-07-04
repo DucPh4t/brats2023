@@ -1,0 +1,40 @@
+# ============================================================
+# Exp2023_001 — Sequential Split Baseline
+#
+# Purpose : Exact replication of Exp001 from BraTS2020.
+#           Config: UNet32, Sequential Split, Min-Max norm, 
+#           Fixed sampling, Dice loss, Adam, no augmentation.
+# Expected: Baseline performance, possible split bias (as seen in 2020).
+# Dataset : BraTS2023 GLI (1251 subjects, 80/10/10 split)
+# ============================================================
+
+exp_name: "exp2023_001"
+description: "Baseline Group A — UNet32 minmax sequential Dice Adam no aug"
+
+data:
+  root_dir: "/kaggle/input/brats-2023-adult-glioma/ASNR-MICCAI-BraTS2023-GLI-Challenge-TrainingData"
+  split_type: "sequential"
+  slice_range: [0, 155]
+  normalization: "minmax"
+  augmentation: false
+  sampling: "fixed"
+  cache_volumes: false      # Must be false for 1251 subjects locally
+  context_slices: 0
+  min_tumor_pixels: 100
+
+model:
+  name: "UNet2D"
+  architecture: "unet2d"
+  in_channels: 4
+  num_classes: 3
+  init_features: 32
+
+training:
+  epochs: 30
+  batch_size: 16
+  lr: 0.0001
+  loss: "dice"
+  optimizer: "adam"
+  num_workers: 4
+  pin_memory: true
+  monitor_metric: "mean_val_dice"

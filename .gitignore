@@ -1,0 +1,25 @@
+# Environments
+venv/
+.env
+
+# Data
+MRI dataset/
+*.nii
+*.nii.gz
+
+# Outputs and Weights
+outputs/
+logs/
+*.pth
+
+# IDE and OS
+.DS_Store
+.vscode/
+__pycache__/
+*.pyc
+
+# Archives and scratch
+archive/
+scratch/
+*.zip
+.cache/
