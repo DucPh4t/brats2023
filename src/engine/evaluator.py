@@ -31,7 +31,10 @@ class Evaluator:
         )
 
         self.batch_size = int(self.eval_cfg.get("batch_size", 16))
-        self.preprocessor = get_preprocessor(self.config["data"].get("normalization", "zscore_volume"))
+        self.preprocessor = get_preprocessor(
+            self.config["data"].get("normalization", "zscore_volume"),
+            self.config["data"],
+        )
 
     def run(self):
         print(f"=== 3D EVALUATING {self.exp_name} ===")
@@ -389,8 +392,17 @@ class Evaluator:
         def _find_file(suffix):
             clean = suffix.replace('.nii.gz', '').replace('.nii', '')
             for f in os.listdir(data_dir):
-                if f.startswith(subject_id + clean) and (f.endswith('.nii.gz') or f.endswith('.nii')):
-                    return os.path.join(data_dir, f)
+                if f.startswith(subject_id + clean):
+                    full_path = os.path.join(data_dir, f)
+                    if os.path.isdir(full_path):
+                        inside_files = [
+                            item for item in os.listdir(full_path)
+                            if item.endswith('.nii') or item.endswith('.nii.gz')
+                        ]
+                        if inside_files:
+                            return os.path.join(full_path, inside_files[0])
+                    elif f.endswith('.nii.gz') or f.endswith('.nii'):
+                        return full_path
             raise FileNotFoundError(
                 f'File with suffix "{clean}" not found for subject {subject_id}'
             )
@@ -399,7 +411,7 @@ class Evaluator:
         for mod, suffix in mod_suffixes.items():
             path = _find_file(suffix)
             vol_3d = nib.load(path).get_fdata()
-            volumes.append(self.preprocessor(vol_3d))
+            volumes.append(self.preprocessor(vol_3d, modality=mod))
 
         stack_4d = np.stack(volumes, axis=0)
         stack_4d = np.transpose(stack_4d, (3, 0, 1, 2)).astype(np.float32)

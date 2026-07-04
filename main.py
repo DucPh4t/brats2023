@@ -63,10 +63,16 @@ def main():
     
     # Initialize Model
     init_features = config["model"].get("init_features", 32)
+    in_channels = config["model"].get("in_channels", 4)
+    num_classes = config["model"].get("num_classes", 3)
     arch = config["model"].get("architecture", "unet2d")
     
     if arch == "unet2d":
-        model = UNet2D(init_features=init_features).to(device)
+        model = UNet2D(
+            n_channels=in_channels,
+            n_classes=num_classes,
+            init_features=init_features,
+        ).to(device)
         arch_name = "U-Net 2D"
     else:
         raise ValueError(f"Architecture {arch} not supported in this clean setup yet.")
@@ -75,6 +81,8 @@ def main():
     num_params = sum(p.numel() for p in model.parameters())
     print(f"==========================================")
     print(f"[MODEL] Architecture: {arch_name}")
+    print(f"[MODEL] Input Channels: {in_channels}")
+    print(f"[MODEL] Output Classes: {num_classes}")
     print(f"[MODEL] Init Features: {init_features}")
     print(f"[MODEL] Total Params: {num_params:,}")
     print(f"==========================================")

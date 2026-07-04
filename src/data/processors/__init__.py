@@ -10,7 +10,7 @@ from .normalization import (
 def get_preprocessor(norm_type, config=None):
     """Factory function to return the correct preprocessing function."""
     config = config or {}
-    if norm_type == "min_max":
+    if norm_type in ("min_max", "minmax"):
         return lambda vol, modality=None: min_max(vol)
     elif norm_type == "zscore_clip":
         return lambda vol, modality=None: zscore_clip(vol)
